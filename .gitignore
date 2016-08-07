@@ -1,0 +1,6 @@
+#find/
+*.tar.gz
+*.tar
+*.deb
+*.zip
+

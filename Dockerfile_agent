@@ -1,0 +1,42 @@
+# Build using : docker build -f Dockerfile_agent --tag=yangjinqiu/gocd-agent ~/docker/gocd
+
+FROM yangjinqiu/java
+FROM gocd/gocd-agent
+MAINTAINER Young Yang "yangjinqiu@le.com"
+
+# Install Java.
+RUN \
+  apt-get update && \
+  apt-get install -y openjdk-7-jdk && \
+  rm -rf /var/lib/apt/lists/*
+
+# Define working directory.
+WORKDIR /data
+
+# Define commonly used JAVA_HOME variable
+ENV JAVA_HOME /usr/lib/jvm/java-7-openjdk-amd64
+
+# install maven
+ENV MAVEN_VERSION 3.3.9
+
+RUN mkdir -p /usr/share/maven
+ADD files/apache-maven-3.3.9-bin.tar.gz /usr/share/maven
+
+RUN ln -s /usr/share/maven/apache-maven-$MAVEN_VERSION/bin/mvn /usr/bin/mvn
+
+ENV MAVEN_HOME /usr/share/maven/apache-maven-$MAVEN_VERSION
+
+# install findbugs
+RUN mkdir -p /usr/share/findbugs
+ADD files/findbugs-noUpdateChecks-3.0.1.tar.gz /usr/share/findbugs
+
+RUN ln -s /usr/share/findbugs/findbugs-3.0.1/bin/findbugs /usr/bin/findbugs
+
+# Add SSH key 
+ADD files/id_rsa /var/go/.ssh/
+ADD files/id_rsa.pub /var/go/.ssh/
+RUN chmod -R 777 /var/go/.ssh
+
+ONBUILD RUN ssh -o StrictHostKeyChecking=no legitlab.letv.cn
+
+CMD ["/sbin/my_init"]

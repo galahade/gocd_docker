@@ -1,0 +1,59 @@
+FROM yangjinqiu/java
+FROM phusion/baseimage:0.9.18
+MAINTAINER Young Yang "yangjinqiu@le.com"
+
+
+RUN rm -rf /etc/service/sshd /etc/my_init.d/00_regen_ssh_host_keys.sh
+RUN apt-get update
+RUN apt-get upgrade -y
+RUN apt-get install -y -q unzip git mercurial subversion openjdk-7-jdk
+
+RUN mkdir /etc/service/go-server
+ADD gocd-server/go-common-scripts.sh /etc/service/go-server/go-common-scripts.sh
+ADD gocd-server/go-server-start.sh /etc/service/go-server/run
+
+RUN ["chmod", "777", "/etc/service/go-server/run", "/etc/service/go-server/go-common-scripts.sh"]
+
+
+ADD files/go-server_16.7.0_all.deb /tmp/go-server.deb
+
+# Add GoCD plugins 
+COPY files/gocd-maven-plugin-0.1.1.jar /var/lib/go-server/plugins/external/
+
+RUN ["groupadd", "-r", "go"]
+RUN ["useradd", "-r", "-c", "Go User", "-g", "go", "-d", "/var/go", "-m", "-s", "/bin/bash", "go"]
+RUN ["mkdir", "-p", "/var/lib/go-server/addons", "/var/log/go-server", "/etc/go", "/go-addons"]
+RUN ["chown", "-R", "go:go", "/var/lib/go-server", "/var/log/go-server", "/etc/go", "/go-addons", "/var/go"]
+
+WORKDIR /tmp
+RUN dpkg -i --debug=10 /tmp/go-server.deb
+RUN sed -i -e 's/DAEMON=Y/DAEMON=N/' /etc/default/go-server
+EXPOSE 8153 8154
+
+RUN apt-get clean
+RUN rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Define commonly used JAVA_HOME variable
+ENV JAVA_HOME /usr/lib/jvm/java-7-openjdk-amd64
+
+# install maven
+ENV MAVEN_VERSION 3.3.9
+
+RUN mkdir -p /usr/share/maven
+ADD files/apache-maven-3.3.9-bin.tar.gz /usr/share/maven
+
+RUN ln -s /usr/share/maven/apache-maven-$MAVEN_VERSION/bin/mvn /usr/bin/mvn
+
+ENV MAVEN_HOME /usr/share/maven/apache-maven-$MAVEN_VERSION
+
+# Add SSH key 
+ADD files/id_rsa /var/go/.ssh/
+ADD files/id_rsa.pub /var/go/.ssh/
+RUN chmod -R 777 /var/go/.ssh
+
+ONBUILD RUN ssh -o StrictHostKeyChecking=no legitlab.letv.cn
+
+#VOLUME ["/var/lib/go-server", "/var/log/go-server", "/etc/go", "/go-addons", "/var/go"]
+
+
+CMD ["/sbin/my_init"]
